@@ -1,0 +1,14 @@
+{
+    "preview_url_template": "",
+    "linear_organization": "",
+    "linear_ticket_prefix": "",
+    "daily_directory": null,
+    "daily_file": "daily.txt",
+    "pipeline_aliases": {
+        "shortcut": "real pipeline name",
+    },
+    "pipeline_suffixes": {
+        "real pipeline name": "-suffix"
+    },
+    "pipeline_url_template": ""
+}
