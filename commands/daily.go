@@ -12,6 +12,26 @@ import (
 	"github.com/symfony-cli/console"
 )
 
+type data struct {
+	Dir  string
+	File string
+	Home string
+}
+
+func (d *data) filePath() string {
+	if d.Dir == "" {
+		return fmt.Sprintf("%s/%s", d.Home, d.File)
+	}
+
+	return fmt.Sprintf("%s/%s/%s", d.Home, d.Dir, d.File)
+}
+
+func (d *data) dirPath() string {
+	return fmt.Sprintf("%s/%s", d.Home, d.Dir)
+}
+
+var d data
+
 // Daily allows to store some text in a file that is reused for the daily of the next days.
 // To fully enjoy this feature, you will need to add 2 crons.
 //
@@ -47,10 +67,14 @@ var Daily = &console.Command{
 			return err
 		}
 
-		dir := app.GetConfig("DailyDirectory")
+		d = data{
+			Dir:  app.GetConfig("DailyDirectory"),
+			File: app.GetConfig("DailyFile"),
+			Home: home,
+		}
 
-		if _, err := os.Stat(fmt.Sprintf("%s/%s", home, dir)); os.IsNotExist(err) {
-			if err := os.Mkdir(fmt.Sprintf("%s/%s", home, dir), os.ModePerm); err != nil {
+		if _, err := os.Stat(d.dirPath()); os.IsNotExist(err) {
+			if err := os.Mkdir(d.dirPath(), os.ModePerm); err != nil {
 				return err
 			}
 		}
@@ -59,16 +83,7 @@ var Daily = &console.Command{
 	},
 	Action: func(c *console.Context) error {
 		task := c.Args().Tail()
-		home, _ := os.UserHomeDir()
-		dir := app.GetConfig("DailyDirectory")
-		dailyFile := app.GetConfig("DailyFile")
-
-		var filePath string
-		if dir == "" {
-			filePath = fmt.Sprintf("%s/%s", home, dailyFile)
-		} else {
-			filePath = fmt.Sprintf("%s/%s/%s", home, dir, dailyFile)
-		}
+		filePath := d.filePath()
 
 		if len(task) == 0 {
 			if c.Bool("ui") {
