@@ -6,6 +6,7 @@ import (
 	"log"
 	"mycli/app"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,19 +16,10 @@ import (
 type data struct {
 	Dir  string
 	File string
-	Home string
 }
 
 func (d *data) filePath() string {
-	if d.Dir == "" {
-		return fmt.Sprintf("%s/%s", d.Home, d.File)
-	}
-
-	return fmt.Sprintf("%s/%s/%s", d.Home, d.Dir, d.File)
-}
-
-func (d *data) dirPath() string {
-	return fmt.Sprintf("%s/%s", d.Home, d.Dir)
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(d.Dir, "/"), d.File)
 }
 
 var d data
@@ -62,19 +54,18 @@ var Daily = &console.Command{
 		},
 	},
 	Before: func(c *console.Context) error {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
+		dir, file := filepath.Split(app.GetConfig("DailyFile"))
+		if dir == "" {
+			dir = app.MyCliHome()
 		}
 
 		d = data{
-			Dir:  app.GetConfig("DailyDirectory"),
-			File: app.GetConfig("DailyFile"),
-			Home: home,
+			Dir:  dir,
+			File: file,
 		}
 
-		if _, err := os.Stat(d.dirPath()); os.IsNotExist(err) {
-			if err := os.Mkdir(d.dirPath(), os.ModePerm); err != nil {
+		if _, err := os.Stat(d.Dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(d.Dir, os.ModePerm); err != nil {
 				return err
 			}
 		}

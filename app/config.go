@@ -13,7 +13,6 @@ type Config struct {
 	PreviewUrlTemplate  string            `json:"preview_url_template"`
 	LinearOrganization  string            `json:"linear_organization"`
 	LinearTicketPrefix  string            `json:"linear_ticket_prefix"`
-	DailyDirectory      string            `json:"daily_directory"`
 	DailyFile           string            `json:"daily_file"`
 	PipelineAliases     map[string]string `json:"pipeline_aliases"`
 	PipelineSuffixes    map[string]string `json:"pipeline_suffixes"`
@@ -33,9 +32,9 @@ func GetMapConfig(key string) map[string]string {
 }
 
 func getValue(key string) reflect.Value {
-	jsonFile, err := os.Open("config.json")
+	jsonFile, err := os.Open(MyCliHome() + "/config.json")
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err, "Did you create the config.json file ?")
 	}
 	defer jsonFile.Close()
 

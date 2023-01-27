@@ -59,3 +59,12 @@ func RunGitCommand(arguments ...string) (string, error) {
 
 	return b.String(), nil
 }
+
+func MyCliHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	return GetEnv("HOME", home+"/mycli")
+}
