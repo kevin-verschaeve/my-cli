@@ -14,6 +14,7 @@ func CommonCommands() []*console.Command {
 		Preview,
 		OpenPullRequest,
 		UpdateCognitoUserAttribute,
+		ConfigEdit,
 	}
 
 	return commands

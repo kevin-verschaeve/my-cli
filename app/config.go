@@ -8,6 +8,8 @@ import (
 	"reflect"
 )
 
+const CONFIG_FILE string = "config.json"
+
 // Config represent the config.json file. When adding a key in json, we must add it here also to be able to fetch it
 type Config struct {
 	PreviewUrlTemplate  string            `json:"preview_url_template"`
@@ -32,9 +34,10 @@ func GetMapConfig(key string) map[string]string {
 }
 
 func getValue(key string) reflect.Value {
-	jsonFile, err := os.Open(MyCliHome() + "/config.json")
+	configPath := MyCliHome() + "/" + CONFIG_FILE
+	jsonFile, err := os.Open(configPath)
 	if err != nil {
-		fmt.Println(err, "Did you create the config.json file ?")
+		fmt.Println(err, fmt.Sprintf("Did you create the %s file ?", configPath))
 	}
 	defer jsonFile.Close()
 
