@@ -1,4 +1,5 @@
 {
+    "vcs": "gitlab",
     "preview_url_template": "",
     "linear_organization": "",
     "linear_ticket_prefix": "",
