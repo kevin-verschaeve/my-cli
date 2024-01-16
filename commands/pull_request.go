@@ -46,10 +46,15 @@ var OpenPullRequest = &console.Command{
 
 		if vcs == "gitlab" {
 			cmd := exec.Command("lab", "mr", "browse")
-			cmd.Run()
+			err := cmd.Run()
 
 			ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
-			ui.Success("Opening pull request on gitlab")
+			if err != nil {
+				ui.Error("MR not found or merged.")
+				return nil
+			}
+
+			ui.Success("Opening merge request on gitlab")
 
 			return nil
 		}
