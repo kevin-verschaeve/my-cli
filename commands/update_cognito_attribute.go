@@ -10,6 +10,10 @@ import (
 
 // UpdateCognitoUserAttribute update a given attribute for a given user on a specific cognito pool.
 var UpdateCognitoUserAttribute = &console.Command{
+	// hide the command as we don't use cognito here
+	Hidden: func() bool {
+		return true
+	},
 	Name:    "aws:cognito:update-user-attribute",
 	Aliases: []*console.Alias{{Name: "attr"}},
 	Usage:   "Update a user attribute on the given pool for the given user",

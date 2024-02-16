@@ -20,6 +20,10 @@ type PullRequest struct {
 
 // Preview is a command that opens a specific amplify environment preview for a pull request.
 var Preview = &console.Command{
+	// hide the command as we don't have preview apps right now
+	Hidden: func() bool {
+		return true
+	},
 	Name:    "open:preview",
 	Aliases: []*console.Alias{{Name: "preview"}},
 	Usage:   "Open a specific environment preview for a pull request",
