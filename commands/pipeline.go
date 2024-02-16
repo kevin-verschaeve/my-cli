@@ -2,7 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"log"
 	"mycli/app"
+	"os/exec"
+	"strings"
 
 	"github.com/symfony-cli/console"
 	"github.com/symfony-cli/terminal"
@@ -11,42 +14,44 @@ import (
 // Pipeline is a shortcut to open an AWS pipeline to see its status or approve a pending one.
 var Pipeline = &console.Command{
 	Name:    "open:pipeline",
-	Aliases: []*console.Alias{{Name: "pipeline"}},
-	Usage:   "Open a specific pipeline on aws",
+	Aliases: []*console.Alias{{Name: "pipeline"}, {Name: "ci"}},
+	Usage:   "View a pipeline in the terminal or in the web",
 	Args: console.ArgDefinition{
-		{Name: "name", Optional: false, Description: "The name of the pipeline to open"},
-	},
-	Flags: []console.Flag{
-		&console.BoolFlag{
-			Name:     "prod",
-			Aliases:  []string{"p"},
-			Required: false,
-			Usage:    "Open prod pipeline",
-		},
+		{Name: "ticket-id", Optional: true, Description: "A ticket id to get the last pipeline from"},
 	},
 	Action: func(c *console.Context) error {
-		name := c.Args().Get("name")
+		vcs := app.GetConfig("VersionControlService")
+		ticketId := c.Args().Get("ticket-id")
 
-		pipelineAliases := app.GetMapConfig("PipelineAliases")
+		prefix := app.GetConfig("LinearTicketPrefix")
+		if prefix == "" {
+			prefix = app.GetEnv("LINEAR_TICKET_PREFIX", "OPS")
+		}
+		prefix = strings.ToLower(prefix)
+		branch := fmt.Sprintf("%s-%s", prefix, strings.ReplaceAll(strings.ToLower(ticketId), fmt.Sprintf("%s-", prefix), ""))
 
-		alias, exists := pipelineAliases[name]
-		if exists {
-			name = alias
+		if vcs == "gitlab" {
+			var cmd *exec.Cmd
+			if ticketId == "" {
+				cmd = exec.Command("lab", "ci", "view")
+			} else {
+				cmd = exec.Command("lab", "ci", "view", branch)
+			}
+
+			err := cmd.Run()
+
+			ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
+			if err != nil {
+				ui.Error("MR not found or merged.")
+				return nil
+			}
+
+			ui.Success("Opening merge request on gitlab")
+
+			return nil
 		}
 
-		env := "staging"
-		if c.Bool("prod") {
-			env = "production"
-		}
-
-		suffixes := app.GetMapConfig("PipelineSuffixes")
-		suffix := suffixes[name]
-
-		pipelineUrlPattern := app.GetConfig("PipelineUrlTemplate")
-		app.OpenCommand(fmt.Sprintf(pipelineUrlPattern, name, env, suffix))
-
-		ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
-		ui.Success(fmt.Sprintf("Opening pipeline %v-%v%v", name, env, suffix))
+		log.Fatal("vcs not correctly set or supported (only gitlab is supported for this command)")
 
 		return nil
 	},

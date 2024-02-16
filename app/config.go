@@ -12,14 +12,11 @@ const CONFIG_FILE string = "config.json"
 
 // Config represent the config.json file. When adding a key in json, we must add it here also to be able to fetch it
 type Config struct {
-	VersionControlService string            `json:"vcs"`
-	PreviewUrlTemplate    string            `json:"preview_url_template"`
-	LinearOrganization    string            `json:"linear_organization"`
-	LinearTicketPrefix    string            `json:"linear_ticket_prefix"`
-	DailyFile             string            `json:"daily_file"`
-	PipelineAliases       map[string]string `json:"pipeline_aliases"`
-	PipelineSuffixes      map[string]string `json:"pipeline_suffixes"`
-	PipelineUrlTemplate   string            `json:"pipeline_url_template"`
+	VersionControlService string `json:"vcs"`
+	PreviewUrlTemplate    string `json:"preview_url_template"`
+	LinearOrganization    string `json:"linear_organization"`
+	LinearTicketPrefix    string `json:"linear_ticket_prefix"`
+	DailyFile             string `json:"daily_file"`
 }
 
 func GetConfig(key string) string {
