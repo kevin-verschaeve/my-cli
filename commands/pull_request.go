@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"fmt"
 	"log"
 	"mycli/app"
 	"os/exec"
+	"strings"
 
 	"github.com/symfony-cli/console"
 	"github.com/symfony-cli/terminal"
@@ -14,6 +16,9 @@ var OpenPullRequest = &console.Command{
 	Name:    "open:pr",
 	Aliases: []*console.Alias{{Name: "pr"}},
 	Usage:   "Open the current branch Pull Request",
+	Args: console.ArgDefinition{
+		{Name: "ticket-id", Optional: true, Description: "The ticket id to check out the pull request. If None, guess it from the current branch"},
+	},
 	Before: func(c *console.Context) error {
 		vcs := app.GetConfig("VersionControlService")
 
@@ -32,10 +37,24 @@ var OpenPullRequest = &console.Command{
 		return nil
 	},
 	Action: func(c *console.Context) error {
+		ticketId := c.Args().Get("ticket-id")
 		vcs := app.GetConfig("VersionControlService")
 
+		prefix := app.GetConfig("LinearTicketPrefix")
+		if prefix == "" {
+			prefix = app.GetEnv("LINEAR_TICKET_PREFIX", "OPS")
+		}
+		prefix = strings.ToLower(prefix)
+		branch := fmt.Sprintf("%s-%s", prefix, strings.ReplaceAll(strings.ToLower(ticketId), fmt.Sprintf("%s-", prefix), ""))
+
 		if vcs == "github" {
-			cmd := exec.Command("gh", "pr", "view", "--web")
+			var cmd *exec.Cmd
+			if ticketId == "" {
+				cmd = exec.Command("gh", "pr", "view", "--web")
+			} else {
+				cmd = exec.Command("gh", "pr", "view", branch, "--web")
+			}
+
 			cmd.Run()
 
 			ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
@@ -45,7 +64,13 @@ var OpenPullRequest = &console.Command{
 		}
 
 		if vcs == "gitlab" {
-			cmd := exec.Command("lab", "mr", "browse")
+			var cmd *exec.Cmd
+			if ticketId == "" {
+				cmd = exec.Command("lab", "mr", "browse")
+			} else {
+				cmd = exec.Command("lab", "mr", "browse", branch)
+			}
+
 			err := cmd.Run()
 
 			ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
