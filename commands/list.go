@@ -12,6 +12,7 @@ func CommonCommands() []*console.Command {
 		Linear,
 		Pipeline,
 		Preview,
+		OpenProject,
 		OpenPullRequest,
 		UpdateCognitoUserAttribute,
 		ConfigEdit,
