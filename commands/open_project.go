@@ -22,7 +22,7 @@ var OpenProject = &console.Command{
 		env := c.Args().Get("env")
 
 		projectAlias := map[string]string{
-			"pq":     "prometheusv2",
+			"pq":     "pily-quotation",
 			"promv2": "prometheusv2",
 			"prom":   "prometheus",
 			"qq":     "quick-quote",
