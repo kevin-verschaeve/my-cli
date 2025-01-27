@@ -14,12 +14,16 @@ var OpenProject = &console.Command{
 	Aliases: []*console.Alias{{Name: "o"}},
 	Usage:   "Open a specific project using shortcuts",
 	Args: console.ArgDefinition{
-		{Name: "project", Description: "The project to open in the browser."},
+		{Name: "project", Optional: true, Description: "The project to open in the browser."},
 		{Name: "env", Optional: true, Description: "The environment to open the app in. Defaults to local", Default: "local"},
 	},
 	Action: func(c *console.Context) error {
 		project := c.Args().Get("project")
 		env := c.Args().Get("env")
+
+		if project == "" {
+			project = app.GetCurrentDir()
+		}
 
 		projectAlias := map[string]string{
 			"pq":     "pily-quotation",

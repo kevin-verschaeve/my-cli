@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -67,4 +68,13 @@ func MyCliHome() string {
 	}
 
 	return GetEnv("HOME", home+"/mycli")
+}
+
+func GetCurrentDir() string {
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	return filepath.Base(path)
 }
