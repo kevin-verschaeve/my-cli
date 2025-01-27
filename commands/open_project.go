@@ -54,7 +54,11 @@ var OpenProject = &console.Command{
 			}
 
 			projectEnv = fmt.Sprintf("%s.%s", projectName, envName)
+
 			tld = "com"
+			if env == "int" {
+				tld = "corp"
+			}
 		}
 
 		url := fmt.Sprintf("https://%s.exotec.%s", projectEnv, tld)
