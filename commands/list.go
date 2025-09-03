@@ -17,6 +17,7 @@ func CommonCommands() []*console.Command {
 		UpdateCognitoUserAttribute,
 		ConfigEdit,
 		Checkout,
+		Token,
 	}
 
 	return commands

@@ -2,5 +2,18 @@
     "vcs": "gitlab",
     "linear_organization": "",
     "linear_ticket_prefix": "",
-    "daily_file": "daily.txt"
+    "daily_file": "daily.txt",
+    "azure_tenant": "",
+    "appications": {
+        "pily": {
+            "client_id": "",
+            "client_secret": "",
+            "scope": ""
+        },
+        "pq": {
+            "client_id": "",
+            "client_secret": "",
+            "scope": ""
+        },
+    }
 }
