@@ -78,3 +78,24 @@ func GetCurrentDir() string {
 
 	return filepath.Base(path)
 }
+
+// GetProjectDir walks up the directory tree to find the git root and returns its name.
+func GetProjectDir() string {
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
+			return filepath.Base(path)
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			break
+		}
+		path = parent
+	}
+
+	return filepath.Base(path)
+}

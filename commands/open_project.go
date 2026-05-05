@@ -22,7 +22,7 @@ var OpenProject = &console.Command{
 		env := c.Args().Get("env")
 
 		if project == "" {
-			project = app.GetCurrentDir()
+			project = app.GetProjectDir()
 		}
 
 		projectAlias := map[string]string{
