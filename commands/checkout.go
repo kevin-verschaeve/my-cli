@@ -13,6 +13,15 @@ var Checkout = &console.Command{
 	Name:    "checkout",
 	Aliases: []*console.Alias{{Name: "go"}},
 	Usage:   "Checkout the current branch using the pre defined prefix",
+	Flags: []console.Flag{
+		&console.BoolFlag{
+			Name:         "create-branch",
+			Aliases:      []string{"b"},
+			Required:     false,
+			DefaultValue: false,
+			Usage:        "Try to automatically create the branch from develop if it doesn't already exists.",
+		},
+	},
 	Args: console.ArgDefinition{
 		{Name: "ticket-id", Optional: false, Description: "The ticket id you want to checkout."},
 	},
@@ -25,16 +34,19 @@ var Checkout = &console.Command{
 		prefix = strings.ToLower(prefix)
 		branch := fmt.Sprintf("%s-%s", prefix, strings.ReplaceAll(strings.ToLower(c.Args().Get("ticket-id")), fmt.Sprintf("%s-", prefix), ""))
 		out, err := app.RunGitCommand("checkout", branch)
+
 		if err != nil {
-			res, e := app.RunGitCommand("checkout", "-b", branch, "origin/develop")
+			if c.Bool("create-branch") {
+				res, e := app.RunGitCommand("checkout", "-b", branch, "origin/develop")
 
-			if e == nil {
-				fmt.Print(res)
+				if e == nil {
+					fmt.Print(res)
 
-				return nil
+					return nil
+				}
+
+				return err
 			}
-
-			return err
 		}
 
 		fmt.Print(out)

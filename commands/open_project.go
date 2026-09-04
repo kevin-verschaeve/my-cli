@@ -13,6 +13,15 @@ var OpenProject = &console.Command{
 	Name:    "open",
 	Aliases: []*console.Alias{{Name: "o"}},
 	Usage:   "Open a specific project using shortcuts",
+	Flags: []console.Flag{
+		&console.BoolFlag{
+			Name:         "docs",
+			Aliases:      []string{"doc"},
+			Required:     false,
+			DefaultValue: false,
+			Usage:        "Open the API documentation of the project instead of the app.",
+		},
+	},
 	Args: console.ArgDefinition{
 		{Name: "project", Optional: true, Description: "The project to open in the browser."},
 		{Name: "env", Optional: true, Description: "The environment to open the app in. Defaults to local", Default: "local"},
@@ -26,11 +35,11 @@ var OpenProject = &console.Command{
 		}
 
 		projectAlias := map[string]string{
-			"pq":     "pily-quotation",
-			"promv2": "prometheusv2",
-			"prom":   "prometheus",
-			"qq":     "quick-quote",
-			"uid":    "unique-id",
+			"pq":    "pily-quotation",
+			"prom":  "prometheus",
+			"qq":    "quick-quote",
+			"uid":   "unique-id",
+			"qqbff": "quick-quote",
 		}
 
 		projectName, projectAliasExists := projectAlias[project]
@@ -39,8 +48,18 @@ var OpenProject = &console.Command{
 			projectName = project
 		}
 
+		if env == "qa" {
+			projectName = fmt.Sprintf("%s-qa", projectName)
+		}
+
+		docs := c.Bool("docs")
+		if docs {
+			projectName = fmt.Sprintf("%s-api", projectName)
+		}
+
 		envAlias := map[string]string{
 			"int":  "eksin.aws",
+			"qa":   "vaapps",
 			"va":   "vaapps",
 			"pr":   "apps",
 			"prod": "apps",
@@ -66,6 +85,10 @@ var OpenProject = &console.Command{
 		}
 
 		url := fmt.Sprintf("https://%s.exotec.%s", projectEnv, tld)
+		if docs {
+			url = fmt.Sprintf("%s/api/docs", url)
+		}
+
 		app.OpenCommand(url)
 
 		ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)

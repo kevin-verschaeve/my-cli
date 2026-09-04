@@ -26,10 +26,8 @@ func GetAzureToken(data map[string]string) (*TokenResponse, error) {
 
 	azureTenant := GetConfig("AzureTenant")
 
-	fmt.Println(azureTenant)
-
 	resp, err := client.Post(
-		"https://login.microsoftonline.com/"+azureTenant+"/oauth2/token",
+		"https://login.microsoftonline.com/"+azureTenant+"/oauth2/v2.0/token",
 		"application/x-www-form-urlencoded",
 		strings.NewReader(form.Encode()),
 	)
