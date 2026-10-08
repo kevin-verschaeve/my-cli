@@ -40,6 +40,7 @@ var OpenProject = &console.Command{
 			"qq":    "quick-quote",
 			"uid":   "unique-id",
 			"qqbff": "quick-quote",
+			"qqv":   "qq-versions",
 		}
 
 		projectName, projectAliasExists := projectAlias[project]
