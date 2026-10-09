@@ -7,6 +7,7 @@ import "github.com/symfony-cli/console"
 // CommonCommands registers all the available commands in the application.
 func CommonCommands() []*console.Command {
 	commands := []*console.Command{
+		Init,
 		Daily,
 		Linear,
 		OpenProject,

@@ -155,7 +155,9 @@ go run main.go <command> <args>
 
 ## Configuration
 
-Copy `config.json.dist` to `$HOME/mycli/config.json` and fill it with correct data.
+Run `exo init` to create `$HOME/mycli/config.json` with default values, then
+`exo config:edit` to customize it. Existing configuration is never overwritten.
+The configuration file is created with owner-only read/write permissions.
 Set `MYCLI__HOME` (or `<compiled prefix>HOME`) to use another configuration directory.
 
 <details>
