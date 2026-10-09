@@ -100,3 +100,49 @@ func TestHotfixValidateNewBranch(t *testing.T) {
 		t.Fatal("existing remote branch must be rejected")
 	}
 }
+
+func TestHotfixPushTagUsesExplicitCommit(t *testing.T) {
+	git := hotfixTestRepo(t)
+	git("checkout", "-b", "hotfix/1.0.1")
+	git("commit", "--allow-empty", "-m", "Fix")
+	commit := git("rev-parse", "HEAD")
+	git("push", "origin", "hotfix/1.0.1")
+	if got, err := hotfixPublishedCommit("hotfix/1.0.1"); err != nil || got != commit {
+		t.Fatalf("published commit = %s, %v", got, err)
+	}
+	git("checkout", "main")
+	for i := 0; i < 2; i++ {
+		if err := hotfixPushTag("1.0.1", commit); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := git("rev-parse", "1.0.1^{commit}"); got != commit {
+		t.Fatalf("tag = %s, want %s", got, commit)
+	}
+	if git("cat-file", "-t", "1.0.1") != "tag" {
+		t.Fatal("release tag must be annotated")
+	}
+	git("checkout", "hotfix/1.0.1")
+	git("commit", "--allow-empty", "-m", "Unreviewed fix")
+	if _, err := hotfixPublishedCommit("hotfix/1.0.1"); err == nil {
+		t.Fatal("unpublished commits must block finalization")
+	}
+}
+
+func TestHotfixPushTagRejectsMismatches(t *testing.T) {
+	git := hotfixTestRepo(t)
+	git("commit", "--allow-empty", "-m", "Fix")
+	commit := git("rev-parse", "HEAD")
+	git("tag", "1.0.1", "HEAD^")
+	if err := hotfixPushTag("1.0.1", commit); err == nil || !strings.Contains(err.Error(), "local tag") {
+		t.Fatalf("expected local mismatch, got %v", err)
+	}
+	git("push", "origin", "refs/tags/1.0.1")
+	git("tag", "-d", "1.0.1")
+	if err := hotfixPushTag("1.0.1", commit); err == nil || !strings.Contains(err.Error(), "remote tag") {
+		t.Fatalf("expected remote mismatch, got %v", err)
+	}
+	if git("tag", "--list", "1.0.1") != "" {
+		t.Fatal("remote mismatch must not create a local tag")
+	}
+}

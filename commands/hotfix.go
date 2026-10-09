@@ -253,20 +253,88 @@ func hotfixValidateNewBranch(branch, prefix string) error {
 	return nil
 }
 
-func hotfixPushTag(tagName string) error {
+func hotfixRemoteTagCommit(output, tagName string) string {
+	commit := ""
+	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		if fields[1] == "refs/tags/"+tagName+"^{}" {
+			return fields[0]
+		}
+		if fields[1] == "refs/tags/"+tagName {
+			commit = fields[0]
+		}
+	}
+	return commit
+}
+
+func hotfixPublishedCommit(branchName string) (string, error) {
+	commit, err := app.RunGitCommand("rev-parse", "--verify", "refs/heads/"+branchName+"^{commit}")
+	if err != nil {
+		return "", fmt.Errorf("unable to resolve hotfix branch: %w", err)
+	}
+	commit = strings.TrimSpace(commit)
+	remote, err := app.RunGitCommand("ls-remote", "--exit-code", "origin", "refs/heads/"+branchName)
+	if err != nil {
+		return "", fmt.Errorf("hotfix is not published or origin is unavailable; run 'mycli hotfix publish': %w", err)
+	}
+	fields := strings.Fields(remote)
+	if len(fields) != 2 || fields[0] != commit {
+		return "", fmt.Errorf("local and published hotfix commits differ; synchronize and run 'mycli hotfix publish' before review")
+	}
+	return commit, nil
+}
+
+func hotfixPushTag(tagName, commit string) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
+	if !hotfixVersionPattern.MatchString(tagName) {
+		return fmt.Errorf("invalid release tag %q", tagName)
+	}
+	resolved, err := app.RunGitCommand("rev-parse", "--verify", commit+"^{commit}")
+	if err != nil {
+		return fmt.Errorf("unable to resolve release commit: %w", err)
+	}
+	commit = strings.TrimSpace(resolved)
+	remote, err := app.RunGitCommand("ls-remote", "origin", "refs/tags/"+tagName, "refs/tags/"+tagName+"^{}")
+	if err != nil {
+		return fmt.Errorf("unable to check remote tag: %w", err)
+	}
+	if remoteCommit := hotfixRemoteTagCommit(remote, tagName); remoteCommit != "" && remoteCommit != commit {
+		return fmt.Errorf("remote tag %s references %s instead of validated commit %s; it will not be overwritten", tagName, remoteCommit, commit)
+	}
 	existingTag, err := app.RunGitCommand("tag", "--list", tagName)
 	if err != nil {
 		return fmt.Errorf("unable to check tag %q: %w", tagName, err)
 	}
+	remoteExists := hotfixRemoteTagCommit(remote, tagName) != ""
+	if strings.TrimSpace(existingTag) == "" && remoteExists {
+		if _, err := app.RunGitCommand("fetch", "origin", "refs/tags/"+tagName+":refs/tags/"+tagName); err != nil {
+			return fmt.Errorf("unable to recover existing release tag: %w", err)
+		}
+		existingTag = tagName
+	}
 	if strings.TrimSpace(existingTag) == "" {
-		if _, err := app.RunGitCommand("tag", tagName); err != nil {
+		if _, err := app.RunGitCommand("tag", "-a", tagName, "-m", "Hotfix release "+tagName, commit); err != nil {
 			return fmt.Errorf("unable to create tag %q: %w", tagName, err)
 		}
 		ui.Note(fmt.Sprintf("Created tag: %s", tagName))
+	} else {
+		existingCommit, err := app.RunGitCommand("rev-parse", "--verify", "refs/tags/"+tagName+"^{commit}")
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(existingCommit) != commit {
+			return fmt.Errorf("local tag %s does not reference validated commit %s; it will not be overwritten", tagName, commit)
+		}
 	}
 
-	if _, err := app.RunGitCommand("push", "origin", tagName); err != nil {
+	if remoteExists {
+		ui.Success(fmt.Sprintf("Tag %s already published at validated commit %s", tagName, commit))
+		return nil
+	}
+	if _, err := app.RunGitCommand("push", "origin", "refs/tags/"+tagName); err != nil {
 		return fmt.Errorf("unable to push tag %q: %w", tagName, err)
 	}
 	ui.Success(fmt.Sprintf("Tag %s pushed", tagName))
@@ -300,6 +368,11 @@ func hotfixPublish(branchName string) error {
 
 func hotfixFinish(branchName, prefix string) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
+	commit, err := hotfixPublishedCommit(branchName)
+	if err != nil {
+		return err
+	}
+	ui.Note(fmt.Sprintf("Release commit: %s (%s)", commit, branchName))
 	if !terminal.AskConfirmation("Review completed and verified?", false) {
 		ui.Note("Finalization postponed. Run 'mycli hotfix finish' after review.")
 		return nil
@@ -308,8 +381,8 @@ func hotfixFinish(branchName, prefix string) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine tag name for branch %q: %w", branchName, err)
 	}
-	if terminal.AskConfirmation(fmt.Sprintf("Push the release tag %s?", tagName), false) {
-		if err := hotfixPushTag(tagName); err != nil {
+	if terminal.AskConfirmation(fmt.Sprintf("Push release tag %s at validated commit %s?", tagName, commit), false) {
+		if err := hotfixPushTag(tagName, commit); err != nil {
 			return err
 		}
 	}

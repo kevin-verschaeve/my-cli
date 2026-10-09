@@ -36,6 +36,12 @@ Set `hotfix_production_tag` to the known deployed tag to suggest it by default,
 including when it is older than the recent releases. This is an explicit hint,
 not an automatic deployment lookup: keep it up to date.
 
+Finalization requires the local hotfix tip to match the published branch. The
+release confirmation displays its exact commit SHA. New release tags are
+annotated and created on that explicit commit, regardless of the checked-out
+branch. Existing local or remote tags must point to the same commit; tags are
+never force-pushed or overwritten.
+
 ## Developing
 
 To build a new version of the CLI

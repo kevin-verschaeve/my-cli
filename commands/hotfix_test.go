@@ -81,11 +81,11 @@ func TestHotfixGitSteps(t *testing.T) {
 	})
 
 	for i := 0; i < 2; i++ {
-		if err := hotfixPushTag("1.0.1"); err != nil {
+		if err := hotfixPushTag("1.0.1", hotfixCommit); err != nil {
 			t.Fatalf("hotfixPushTag attempt %d: %v", i+1, err)
 		}
 	}
-	if got := git("--git-dir", remote, "rev-parse", "refs/tags/1.0.1"); got != hotfixCommit {
+	if got := git("--git-dir", remote, "rev-parse", "refs/tags/1.0.1^{commit}"); got != hotfixCommit {
 		t.Fatalf("remote release tag = %s, want %s", got, hotfixCommit)
 	}
 	for _, target := range []string{"develop", "main"} {
