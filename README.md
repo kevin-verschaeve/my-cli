@@ -2,6 +2,28 @@
 
 A set of custom commands I use everyday to ease usage.
 
+## Installation
+
+From a clone of this repository, with Go and Make installed:
+
+```sh
+make install
+```
+
+This builds and installs `exo` into `$HOME/.local/bin`. Ensure that directory is
+in your `PATH`. Re-run the same command to update the binary.
+
+Customize the binary name, installation directory, and environment variable prefix:
+
+```sh
+PREFIX=MONCLI__ make install BINARY=mon_cli BINDIR="$HOME/.local/bin"
+```
+
+The prefix is embedded in the binary at compile time; it defaults to `MYCLI__`.
+For example, this custom build reads `MONCLI__HOME` instead of `MYCLI__HOME`.
+The default configuration directory remains `$HOME/mycli`, regardless of the
+binary name or prefix. Installation does not create or overwrite configuration.
+
 ## Usage
 
 - Show all available commands
@@ -115,6 +137,16 @@ To build a new version of the CLI
 go build -o $HOME/go/bin/exo
 ```
 
+To embed a custom environment variable prefix without Make:
+
+```sh
+go build -ldflags "-X mycli/app.EnvPrefix=MONCLI__" -o ./mon_cli .
+```
+
+Setting `PREFIX=MONCLI__ go build` alone does not embed the value: Go does not
+automatically read that environment variable. The Make target forwards `PREFIX`
+to the linker using `-X`, which requires a string variable, not a constant.
+
 To run a new version of a command before packaging it in the binary
 
 ```
@@ -123,7 +155,8 @@ go run main.go <command> <args>
 
 ## Configuration
 
-Copy the `config.json.dist` file to `config.json` and fill it with correct data.
+Copy `config.json.dist` to `$HOME/mycli/config.json` and fill it with correct data.
+Set `MYCLI__HOME` (or `<compiled prefix>HOME`) to use another configuration directory.
 
 <details>
     <summary>Configuration Reference</summary>

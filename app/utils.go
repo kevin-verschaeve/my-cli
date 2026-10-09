@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+// EnvPrefix is the environment variable prefix, overridable with go build -ldflags -X.
+var EnvPrefix = "MYCLI"
+
 // OpenCommand find the best command to open a file or url depending on the OS.
 func OpenCommand(url string) {
 	var err error
@@ -33,7 +36,7 @@ func OpenCommand(url string) {
 
 // GetEnv get an environment variable or return a default value if not found.
 func GetEnv(varname, defaultValue string) string {
-	value, exists := os.LookupEnv(fmt.Sprintf("MYCLI__%s", varname))
+	value, exists := os.LookupEnv(EnvPrefix + "__" + varname)
 	if !exists {
 		return defaultValue
 	}
