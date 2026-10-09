@@ -18,6 +18,7 @@ func CommonCommands() []*console.Command {
 		ConfigEdit,
 		Checkout,
 		Token,
+		Hotfix,
 	}
 
 	return commands

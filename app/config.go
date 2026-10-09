@@ -22,6 +22,7 @@ type Config struct {
 	LinearOrganization    string                       `json:"linear_organization"`
 	LinearTicketPrefix    string                       `json:"linear_ticket_prefix"`
 	DailyFile             string                       `json:"daily_file"`
+	HotfixPrefix          string                       `json:"hotfix_prefix"`
 	AzureTenant           string                       `json:"azure_tenant"`
 	Applications          map[string]ApplicationConfig `json:"applications"`
 }
