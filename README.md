@@ -14,6 +14,16 @@ mycli
 mycli help <comman>
 ```
 
+## Hotfix workflow
+
+Run `mycli hotfix` for an interactive menu, or choose a step explicitly:
+
+1. `mycli hotfix start`: choose the release and create a hotfix branch. The command exits so you can implement and commit the fix.
+2. `mycli hotfix publish`: push the current hotfix branch for review. Run it again to publish additional commits.
+3. `mycli hotfix finish`: after review, optionally publish the release tag and backport the fix.
+
+Declining finalization postpones it; it does not delete your branch or commits.
+
 ## Developing
 
 To build a new version of the CLI
