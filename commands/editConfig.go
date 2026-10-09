@@ -1,10 +1,13 @@
 package commands
 
 import (
+	"fmt"
 	"log"
 	"mycli/app"
 	"os"
+	"os/exec"
 
+	"github.com/kballard/go-shellquote"
 	"github.com/symfony-cli/console"
 )
 
@@ -29,8 +32,22 @@ var ConfigEdit = &console.Command{
 		return nil
 	},
 	Action: func(c *console.Context) error {
-		app.OpenCommand(app.MyCliHome() + "/" + app.CONFIG_FILE)
+		editor := os.Getenv("VISUAL")
+		if editor == "" {
+			editor = os.Getenv("EDITOR")
+		}
+		if editor == "" {
+			editor = "nano"
+		}
 
-		return nil
+		args, err := shellquote.Split(editor)
+		if err != nil || len(args) == 0 {
+			return fmt.Errorf("invalid editor command: %q", editor)
+		}
+		cmd := exec.Command(args[0], append(args[1:], app.MyCliHome()+"/"+app.CONFIG_FILE)...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	},
 }
