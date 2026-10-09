@@ -8,13 +8,8 @@ import "github.com/symfony-cli/console"
 func CommonCommands() []*console.Command {
 	commands := []*console.Command{
 		Daily,
-		MultiCherryPicker,
 		Linear,
-		Pipeline,
-		Preview,
 		OpenProject,
-		OpenPullRequest,
-		UpdateCognitoUserAttribute,
 		ConfigEdit,
 		Checkout,
 		Token,
