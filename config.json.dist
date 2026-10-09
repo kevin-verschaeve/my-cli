@@ -3,11 +3,11 @@
     "linear_organization": "",
     "linear_ticket_prefix": "",
     "daily_file": "daily.txt",
-    "hotfix_prefix": "hotfix",
-    "hotfix_production_tag": "",
-    "hotfix_review_target": "",
-    "hotfix_backport_targets": [],
-    "hotfix_backport_mode": "review",
+    "hotfix": {
+        "prefix": "hotfix",
+        "backport_targets": [],
+        "backport_mode": "review"
+    },
     "azure_tenant": "",
     "applications": {
         "pily": {

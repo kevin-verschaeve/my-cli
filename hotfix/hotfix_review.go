@@ -1,4 +1,4 @@
-package commands
+package hotfix
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	"mycli/app"
@@ -74,25 +73,6 @@ func hotfixGitLabMRDetails(branch, target string, includeMerged bool) (string, i
 	}
 	details, err := hotfixRunVCS("glab", "api", fmt.Sprintf("projects/:id/merge_requests/%d", iid))
 	return details, iid, err
-}
-
-func hotfixOpenURL(link string) error {
-	parsed, err := url.Parse(link)
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
-		return fmt.Errorf("provider returned an invalid web URL")
-	}
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("xdg-open", link)
-	case "darwin":
-		cmd = exec.Command("open", link)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", link)
-	default:
-		return fmt.Errorf("browser opening is unsupported on this platform")
-	}
-	return cmd.Run()
 }
 
 type hotfixReview struct {
@@ -282,55 +262,4 @@ func hotfixOpenReview(vcs, branch, target string) error {
 		_, err = hotfixRunVCS(tool, "mr", "view", branch, "--web")
 	}
 	return err
-}
-
-func hotfixReviewLinks(branch, vcs, configuredTarget string) {
-	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
-	target := hotfixReviewTarget(configuredTarget)
-	if target != "" && terminal.AskConfirmation(fmt.Sprintf("Open or create the review to %s?", target), true) {
-		if err := hotfixOpenReview(vcs, branch, target); err != nil {
-			ui.Note("Branch remains published. Review could not be opened: " + err.Error())
-		}
-	}
-	if terminal.AskConfirmation("Open CI for this hotfix?", false) {
-		tool := hotfixVCSTool(vcs)
-		var err error
-		if tool == "" {
-			err = fmt.Errorf("configure vcs to github or gitlab")
-		} else if vcs == "github" {
-			var output string
-			output, err = hotfixRunVCS(tool, "run", "list", "--branch", branch, "--limit", "1", "--json", "url,databaseId")
-			if err == nil {
-				var runs []struct {
-					URL string `json:"url"`
-					ID  int    `json:"databaseId"`
-				}
-				err = json.Unmarshal([]byte(output), &runs)
-				if err == nil && len(runs) > 0 {
-					ui.Note("CI: " + runs[0].URL)
-					_, err = hotfixRunVCS(tool, "run", "view", fmt.Sprint(runs[0].ID), "--web")
-				} else if err == nil {
-					ui.Note("No CI run found yet. Try again after the pipeline starts.")
-				}
-			}
-		} else {
-			var output string
-			output, err = hotfixRunVCS(tool, "api", "projects/:id/pipelines?per_page=1&ref="+url.QueryEscape(branch))
-			if err == nil {
-				var pipelines []struct {
-					URL string `json:"web_url"`
-				}
-				err = json.Unmarshal([]byte(output), &pipelines)
-				if err == nil && len(pipelines) > 0 {
-					ui.Note("CI: " + pipelines[0].URL)
-					err = hotfixOpenURL(pipelines[0].URL)
-				} else if err == nil {
-					ui.Note("No CI pipeline found yet. Try again after the pipeline starts.")
-				}
-			}
-		}
-		if err != nil {
-			ui.Note("Unable to open CI: " + err.Error())
-		}
-	}
 }

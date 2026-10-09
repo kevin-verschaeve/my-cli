@@ -1,4 +1,4 @@
-package commands
+package hotfix
 
 import (
 	"encoding/json"
@@ -16,6 +16,7 @@ type hotfixBackportState struct {
 	Branch       string `json:"branch"`
 	Phase        string `json:"phase"`
 	ResultCommit string `json:"result_commit,omitempty"`
+	Outcome      string `json:"outcome,omitempty"`
 }
 
 type hotfixState struct {
@@ -28,6 +29,7 @@ type hotfixState struct {
 	TagStatus        string                `json:"tag_status,omitempty"`
 	Backports        []hotfixBackportState `json:"backports,omitempty"`
 	BackportsPlanned bool                  `json:"backports_planned"`
+	LastError        string                `json:"last_error,omitempty"`
 }
 
 type hotfixStore struct {

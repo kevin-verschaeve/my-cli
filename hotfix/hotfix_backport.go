@@ -1,4 +1,4 @@
-package commands
+package hotfix
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ func hotfixPlanBackports(store *hotfixStore, state *hotfixState, config *app.Con
 	if state.BackportsPlanned {
 		return nil
 	}
-	targets, err := hotfixBackportTargets(config.HotfixBackportTargets)
+	targets, err := hotfixBackportTargets(config.Hotfix.BackportTargets)
 	if err != nil {
 		return err
 	}
@@ -60,12 +60,12 @@ func hotfixPlanBackports(store *hotfixStore, state *hotfixState, config *app.Con
 			return err
 		}
 	}
-	mode := config.HotfixBackportMode
+	mode := config.Hotfix.BackportMode
 	if mode == "" {
 		mode = "review"
 	}
 	if mode != "review" && mode != "direct" {
-		return fmt.Errorf("hotfix_backport_mode must be review or direct")
+		return fmt.Errorf("hotfix.backport_mode must be review or direct")
 	}
 	if len(selected) > 0 {
 		if err := survey.AskOne(&survey.Select{
@@ -89,7 +89,7 @@ func hotfixPlanBackports(store *hotfixStore, state *hotfixState, config *app.Con
 			}
 		}
 		if !terminal.AskConfirmation(fmt.Sprintf("Backport %s to [%s] using %s mode?", state.Commit, strings.Join(selected, ", "), mode), false) {
-			return fmt.Errorf("backports postponed; run 'mycli hotfix resume' to select them again")
+			return fmt.Errorf("backports postponed; run 'exo hotfix resume' to select them again")
 		}
 	}
 	var planned []hotfixBackportState
@@ -188,7 +188,7 @@ func hotfixRunBackport(store *hotfixStore, state *hotfixState, index int, vcs st
 			if backport.Mode == "direct" {
 				operation = "merge"
 			}
-			return fmt.Errorf("backport to %s stopped: %w\nResolve conflicts, stage changes, then run 'git %s --continue' and 'mycli hotfix resume'. To abort the Git operation: 'git %s --abort'. Completed backports are preserved", backport.Target, err, operation, operation)
+			return fmt.Errorf("backport to %s stopped: %w\nResolve conflicts, stage changes, then run 'git %s --continue' and 'exo hotfix resume'. To abort the Git operation: 'git %s --abort'. Completed backports are preserved", backport.Target, err, operation, operation)
 		}
 		result, err := app.RunGitCommand("rev-parse", "HEAD")
 		if err != nil {
@@ -215,6 +215,7 @@ func hotfixRunBackport(store *hotfixStore, state *hotfixState, index int, vcs st
 			}
 			if strings.TrimSpace(diff) == "" {
 				backport.Phase = "done"
+				backport.Outcome = "already-present"
 				if err := store.save(); err != nil {
 					return err
 				}
@@ -227,7 +228,7 @@ func hotfixRunBackport(store *hotfixStore, state *hotfixState, index int, vcs st
 			ref = "refs/heads/" + backport.Target
 		}
 		if _, err := app.RunGitCommand("push", "origin", "refs/heads/"+backport.Branch+":"+ref); err != nil {
-			return fmt.Errorf("unable to publish backport to %s (no force push was attempted): %w; run 'mycli hotfix resume' to retry", backport.Target, err)
+			return fmt.Errorf("unable to publish backport to %s (no force push was attempted): %w; run 'exo hotfix resume' to retry", backport.Target, err)
 		}
 		backport.Phase = "pushed"
 		if err := store.save(); err != nil {
@@ -236,7 +237,7 @@ func hotfixRunBackport(store *hotfixStore, state *hotfixState, index int, vcs st
 	}
 	if backport.Mode == "review" {
 		if err := hotfixOpenReview(vcs, backport.Branch, backport.Target); err != nil {
-			return fmt.Errorf("backport branch is pushed; opening its review failed: %w; run 'mycli hotfix resume' to retry", err)
+			return fmt.Errorf("backport branch is pushed; opening its review failed: %w; run 'exo hotfix resume' to retry", err)
 		}
 	}
 	backport.Phase = "done"

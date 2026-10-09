@@ -15,6 +15,12 @@ type ApplicationConfig struct {
 	Scope        string `json:"scope"`
 }
 
+type HotfixConfig struct {
+	Prefix          string   `json:"prefix"`
+	BackportTargets []string `json:"backport_targets"`
+	BackportMode    string   `json:"backport_mode"`
+}
+
 // Config represent the config.json file. When adding a key in json, we must add it here also to be able to fetch it
 type Config struct {
 	VersionControlService string                       `json:"vcs"`
@@ -22,11 +28,7 @@ type Config struct {
 	LinearOrganization    string                       `json:"linear_organization"`
 	LinearTicketPrefix    string                       `json:"linear_ticket_prefix"`
 	DailyFile             string                       `json:"daily_file"`
-	HotfixPrefix          string                       `json:"hotfix_prefix"`
-	HotfixProductionTag   string                       `json:"hotfix_production_tag"`
-	HotfixReviewTarget    string                       `json:"hotfix_review_target"`
-	HotfixBackportTargets []string                     `json:"hotfix_backport_targets"`
-	HotfixBackportMode    string                       `json:"hotfix_backport_mode"`
+	Hotfix                HotfixConfig                 `json:"hotfix"`
 	AzureTenant           string                       `json:"azure_tenant"`
 	Applications          map[string]ApplicationConfig `json:"applications"`
 }

@@ -1,4 +1,4 @@
-package commands
+package hotfix
 
 import (
 	"errors"
