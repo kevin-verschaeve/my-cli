@@ -24,6 +24,7 @@ type Config struct {
 	DailyFile             string                       `json:"daily_file"`
 	HotfixPrefix          string                       `json:"hotfix_prefix"`
 	HotfixProductionTag   string                       `json:"hotfix_production_tag"`
+	HotfixReviewTarget    string                       `json:"hotfix_review_target"`
 	AzureTenant           string                       `json:"azure_tenant"`
 	Applications          map[string]ApplicationConfig `json:"applications"`
 }

@@ -356,23 +356,27 @@ func hotfixBackport(branchName, target string) error {
 	return nil
 }
 
-func hotfixPublish(branchName string) error {
+func hotfixPublish(branchName, vcs, reviewTarget string) error {
 	if _, err := app.RunGitCommand("push", "-u", "origin", branchName); err != nil {
 		return fmt.Errorf("unable to push branch: %w", err)
 	}
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
 	ui.Success("Branch pushed")
+	hotfixReviewLinks(branchName, vcs, reviewTarget)
 	ui.Note("Request a review, then run 'mycli hotfix finish' when it is approved.")
 	return nil
 }
 
-func hotfixFinish(branchName, prefix string) error {
+func hotfixFinish(branchName, prefix, vcs string) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
 	commit, err := hotfixPublishedCommit(branchName)
 	if err != nil {
 		return err
 	}
 	ui.Note(fmt.Sprintf("Release commit: %s (%s)", commit, branchName))
+	if err := hotfixVerifyReview(vcs, branchName, commit); err != nil {
+		return err
+	}
 	if !terminal.AskConfirmation("Review completed and verified?", false) {
 		ui.Note("Finalization postponed. Run 'mycli hotfix finish' after review.")
 		return nil
@@ -460,9 +464,9 @@ var Hotfix = &console.Command{
 				return fmt.Errorf("check out a %s/* branch before running 'mycli hotfix %s'", prefix, action)
 			}
 			if action == "publish" {
-				return hotfixPublish(current)
+				return hotfixPublish(current, config.VersionControlService, config.HotfixReviewTarget)
 			}
-			return hotfixFinish(current, prefix)
+			return hotfixFinish(current, prefix, config.VersionControlService)
 		default:
 			return fmt.Errorf("unknown hotfix action %q: use start, publish, or finish", action)
 		}

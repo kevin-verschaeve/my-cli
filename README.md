@@ -42,6 +42,18 @@ annotated and created on that explicit commit, regardless of the checked-out
 branch. Existing local or remote tags must point to the same commit; tags are
 never force-pushed or overwritten.
 
+After publication you can open or create a review and open CI. Set `vcs` to
+`github` (requires authenticated `gh`) or `gitlab` (requires authenticated `glab`
+for the hotfix workflow; older `open:pr`/`pipeline` commands still use `lab`).
+`hotfix_review_target` chooses the review target; otherwise the first existing
+branch among `main`, `master`, and `develop` is used.
+
+Finalization checks the review's commit, draft/state, approvals, and CI status.
+Known pending/failed checks or missing required approvals block release. If the
+tool is unavailable or the provider has no complete approval/CI evidence, an
+explicit manual verification is required. Provider/API errors do not silently
+bypass verification. Review and CI actions are optional after a successful push.
+
 ## Developing
 
 To build a new version of the CLI

@@ -3,8 +3,9 @@
     "linear_organization": "",
     "linear_ticket_prefix": "",
     "daily_file": "daily.txt",
-	"hotfix_prefix": "hotfix",
-	"hotfix_production_tag": "",
+    "hotfix_prefix": "hotfix",
+    "hotfix_production_tag": "",
+    "hotfix_review_target": "",
     "azure_tenant": "",
     "applications": {
         "pily": {
