@@ -24,6 +24,11 @@ Run `mycli hotfix` for an interactive menu, or choose a step explicitly:
 
 Declining finalization postpones it; it does not delete your branch or commits.
 
+Each step requires a clean working tree, no Git operation in progress, and an
+accessible `origin` remote. Remote branches and tags are refreshed before changes.
+Custom branch names must contain a valid release version; existing branches or
+release tags are rejected at creation time.
+
 ## Developing
 
 To build a new version of the CLI

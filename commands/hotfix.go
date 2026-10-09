@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -108,6 +109,9 @@ func hotfixStart(prefix string) (string, error) {
 	if latestTag == "" {
 		return "", fmt.Errorf("tag is required")
 	}
+	if _, err := app.RunGitCommand("rev-parse", "--verify", "refs/tags/"+latestTag+"^{commit}"); err != nil {
+		return "", fmt.Errorf("release tag %q does not exist or does not reference a commit", latestTag)
+	}
 	terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin).Note(fmt.Sprintf("Using tag: %s", latestTag))
 
 	nextVersion, err := nextPatchVersion(latestTag)
@@ -121,18 +125,75 @@ func hotfixStart(prefix string) (string, error) {
 			return "", fmt.Errorf("branch name is required")
 		}
 		branchName = fmt.Sprintf("%s/%s", prefix, name)
+		if err := hotfixValidateNewBranch(branchName, prefix); err != nil {
+			return "", err
+		}
 		if !terminal.AskConfirmation(fmt.Sprintf("Create hotfix from tag %s and branch %s?", latestTag, branchName), true) {
 			return "", fmt.Errorf("hotfix creation cancelled by user")
 		}
 	}
+	if err := hotfixValidateNewBranch(branchName, prefix); err != nil {
+		return "", err
+	}
 	terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin).Note(fmt.Sprintf("Creating branch: %s", branchName))
 
 	// Create branch from tag
-	_, err = app.RunGitCommand("checkout", "-b", branchName, latestTag)
+	_, err = app.RunGitCommand("checkout", "-b", branchName, "refs/tags/"+latestTag)
 	if err != nil {
 		return "", fmt.Errorf("unable to create branch: %w", err)
 	}
 	return branchName, nil
+}
+
+func hotfixEnsureClean() error {
+	for _, operation := range []string{"MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"} {
+		path, err := app.RunGitCommand("rev-parse", "--git-path", operation)
+		if err != nil {
+			return fmt.Errorf("not a Git repository: %w", err)
+		}
+		if _, err := os.Stat(strings.TrimSpace(path)); err == nil {
+			return fmt.Errorf("Git operation %s is in progress; resolve or abort it before continuing", operation)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	status, err := app.RunGitCommand("status", "--porcelain")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(status) != "" {
+		return fmt.Errorf("working tree is not clean; commit or stash your changes (including untracked files) before continuing")
+	}
+	return nil
+}
+
+func hotfixPreflight() error {
+	if err := hotfixEnsureClean(); err != nil {
+		return err
+	}
+	if _, err := app.RunGitCommand("remote", "get-url", "origin"); err != nil {
+		return fmt.Errorf("remote 'origin' is required: %w", err)
+	}
+	if _, err := app.RunGitCommand("fetch", "--prune", "--tags", "origin"); err != nil {
+		return fmt.Errorf("unable to refresh remote branches and tags: %w", err)
+	}
+	return nil
+}
+
+func hotfixValidateNewBranch(branch, prefix string) error {
+	tag, err := hotfixTagName(branch, prefix)
+	if err != nil {
+		return err
+	}
+	if _, err := app.RunGitCommand("check-ref-format", "--branch", branch); err != nil {
+		return fmt.Errorf("invalid branch name %q: %w", branch, err)
+	}
+	for _, ref := range []string{"refs/heads/" + branch, "refs/remotes/origin/" + branch, "refs/tags/" + tag} {
+		if _, err := app.RunGitCommand("rev-parse", "--verify", ref); err == nil {
+			return fmt.Errorf("%s already exists; resume the existing hotfix or choose another version", ref)
+		}
+	}
+	return nil
 }
 
 func hotfixPushTag(tagName string) error {
@@ -228,7 +289,11 @@ var Hotfix = &console.Command{
 	},
 	Action: func(c *console.Context) error {
 		ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
-		prefix := app.GetConfig("HotfixPrefix")
+		config, err := app.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("unable to load configuration: %w", err)
+		}
+		prefix := config.HotfixPrefix
 		if prefix == "" {
 			prefix = "hotfix"
 		}
@@ -244,6 +309,12 @@ var Hotfix = &console.Command{
 			if err := survey.AskOne(&survey.Select{Message: "Next hotfix step:", Options: options}, &action); err != nil {
 				return err
 			}
+		}
+		if action != "start" && action != "publish" && action != "finish" {
+			return fmt.Errorf("unknown hotfix action %q: use start, publish, or finish", action)
+		}
+		if err := hotfixPreflight(); err != nil {
+			return err
 		}
 		switch action {
 		case "start":
