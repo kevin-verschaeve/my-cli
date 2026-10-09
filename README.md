@@ -54,6 +54,33 @@ tool is unavailable or the provider has no complete approval/CI evidence, an
 explicit manual verification is required. Provider/API errors do not silently
 bypass verification. Review and CI actions are optional after a successful push.
 
+### Backports and recovery
+
+Choose backport targets with the multi-select prompt. `hotfix_backport_targets`
+can list project-specific branches (for example `["develop", "main", "release/1.0"]`);
+when empty, existing `develop` and `main`/`master` branches are suggested.
+`hotfix_backport_mode` defaults to `review`:
+
+- `review`: create a dedicated branch from each remote target, cherry-pick only
+    the fix commits since the starting tag, push the branch, and open/create a PR/MR.
+    Target branches are never pushed directly. Merge commits in the hotfix require
+    a manual backport or explicitly choosing direct mode.
+- `direct`: merge the validated SHA into a dedicated branch and push it to the
+    target, without force. Use only when direct pushes are allowed by project policy.
+
+Checkpoints are saved atomically in Git's common directory, not committed into
+the repository. Once finalization starts, the validated SHA is frozen. Restart
+with `mycli hotfix resume` from any branch: successful tag publication and
+completed backports are skipped. Failed pushes or review creation can be retried.
+Review backports marked complete mean the PR/MR was opened, **not merged**.
+
+On a conflict, resolve and stage files, then run `git cherry-pick --continue`
+(review mode) or `git merge --continue` (direct mode), followed by
+`mycli hotfix resume`. Use the corresponding `--abort` to abandon the current Git
+operation; resume will retry that backport. Do not delete or edit checkpointed
+backport branches. A declined tag is recorded as skipped for that workflow.
+Checkpoints are local to this clone; do not run concurrent hotfix commands.
+
 ## Developing
 
 To build a new version of the CLI

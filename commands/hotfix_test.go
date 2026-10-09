@@ -89,7 +89,16 @@ func TestHotfixGitSteps(t *testing.T) {
 		t.Fatalf("remote release tag = %s, want %s", got, hotfixCommit)
 	}
 	for _, target := range []string{"develop", "main"} {
-		if err := hotfixBackport("hotfix/1.0.1", target); err != nil {
+		store, err := hotfixLoadStore()
+		if err != nil {
+			t.Fatal(err)
+		}
+		state := store.state("hotfix/1.0.1")
+		state.Commit = hotfixCommit
+		state.Backports = append(state.Backports, hotfixBackportState{
+			Target: target, Mode: "direct", Branch: "backport/hotfix/1.0.1/" + target, Phase: "pending",
+		})
+		if err := hotfixRunBackport(store, state, len(state.Backports)-1, ""); err != nil {
 			t.Fatalf("hotfixBackport to %s: %v", target, err)
 		}
 		if got := git("-C", repo, "rev-parse", "HEAD^2"); got != hotfixCommit {

@@ -115,7 +115,7 @@ func hotfixReleaseOptions(candidates []string, dates map[string]string, producti
 	return append(options, "Other (I will provide it)"), defaultChoice
 }
 
-func hotfixStart(prefix, production string) (string, error) {
+func hotfixStart(prefix, production string, store *hotfixStore) (string, error) {
 	allTags, err := app.RunGitCommand("tag", "-l", "--sort=-v:refname")
 	if err != nil {
 		return "", fmt.Errorf("unable to list tags: %w", err)
@@ -198,6 +198,16 @@ func hotfixStart(prefix, production string) (string, error) {
 	_, err = app.RunGitCommand("checkout", "-b", branchName, "refs/tags/"+latestTag)
 	if err != nil {
 		return "", fmt.Errorf("unable to create branch: %w", err)
+	}
+	baseCommit, err := app.RunGitCommand("rev-parse", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	store.Workflows[branchName] = &hotfixState{
+		Branch: branchName, Base: latestTag, BaseCommit: strings.TrimSpace(baseCommit), Phase: "started",
+	}
+	if err := store.save(); err != nil {
+		return "", fmt.Errorf("branch %s was created, but checkpoint could not be saved: %w", branchName, err)
 	}
 	return branchName, nil
 }
@@ -341,24 +351,27 @@ func hotfixPushTag(tagName, commit string) error {
 	return nil
 }
 
-func hotfixBackport(branchName, target string) error {
-	for _, args := range [][]string{
-		{"checkout", target},
-		{"pull", "origin", target},
-		{"merge", "--no-ff", branchName},
-		{"push", "origin", target},
-	} {
-		if _, err := app.RunGitCommand(args...); err != nil {
-			return fmt.Errorf("backport to %s failed on 'git %s': %w", target, strings.Join(args, " "), err)
-		}
+func hotfixPublish(store *hotfixStore, state *hotfixState, vcs, reviewTarget string) error {
+	branchName := state.Branch
+	if state.Phase == "finishing" || state.Phase == "completed" {
+		return fmt.Errorf("release commit is frozen; resume finalization or start a new hotfix instead of publishing more commits")
 	}
-	terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin).Success(fmt.Sprintf("Backported to %s", target))
-	return nil
-}
-
-func hotfixPublish(branchName, vcs, reviewTarget string) error {
+	if err := hotfixFindBase(state); err != nil {
+		return err
+	}
+	commit, err := app.RunGitCommand("rev-parse", "--verify", "refs/heads/"+branchName+"^{commit}")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(commit) == state.BaseCommit {
+		return fmt.Errorf("no fix commit found; implement and commit your fix before publishing")
+	}
 	if _, err := app.RunGitCommand("push", "-u", "origin", branchName); err != nil {
 		return fmt.Errorf("unable to push branch: %w", err)
+	}
+	state.Commit, state.Phase = strings.TrimSpace(commit), "published"
+	if err := store.save(); err != nil {
+		return err
 	}
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
 	ui.Success("Branch pushed")
@@ -367,44 +380,76 @@ func hotfixPublish(branchName, vcs, reviewTarget string) error {
 	return nil
 }
 
-func hotfixFinish(branchName, prefix, vcs string) error {
+func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config *app.Config) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
+	branchName := state.Branch
+	if state.Phase == "completed" {
+		ui.Success("Hotfix already finalized. Review backports may still be awaiting merge.")
+		return nil
+	}
 	commit, err := hotfixPublishedCommit(branchName)
 	if err != nil {
 		return err
 	}
-	ui.Note(fmt.Sprintf("Release commit: %s (%s)", commit, branchName))
-	if err := hotfixVerifyReview(vcs, branchName, commit); err != nil {
+	if state.Phase == "finishing" && state.Commit != commit {
+		return fmt.Errorf("hotfix changed after release validation; expected %s, found %s", state.Commit, commit)
+	}
+	if err := hotfixFindBase(state); err != nil {
 		return err
 	}
-	if !terminal.AskConfirmation("Review completed and verified?", false) {
-		ui.Note("Finalization postponed. Run 'mycli hotfix finish' after review.")
-		return nil
+	if commit == state.BaseCommit {
+		return fmt.Errorf("no fix commit found; nothing to finalize")
+	}
+	ui.Note(fmt.Sprintf("Release commit: %s (%s)", commit, branchName))
+	if state.Phase != "finishing" {
+		if err := hotfixVerifyReview(config.VersionControlService, branchName, commit); err != nil {
+			return err
+		}
+		if !terminal.AskConfirmation("Finalize this validated hotfix commit?", false) {
+			ui.Note("Finalization postponed. Run 'mycli hotfix finish' after review.")
+			return nil
+		}
+		state.Commit, state.Phase = commit, "finishing"
+		if err := store.save(); err != nil {
+			return err
+		}
 	}
 	tagName, err := hotfixTagName(branchName, prefix)
 	if err != nil {
 		return fmt.Errorf("unable to determine tag name for branch %q: %w", branchName, err)
 	}
-	if terminal.AskConfirmation(fmt.Sprintf("Push release tag %s at validated commit %s?", tagName, commit), false) {
+	state.Tag = tagName
+	if state.TagStatus == "" {
+		state.TagStatus = "skipped"
+		if terminal.AskConfirmation(fmt.Sprintf("Push release tag %s at validated commit %s?", tagName, commit), false) {
+			state.TagStatus = "pending"
+		}
+		if err := store.save(); err != nil {
+			return err
+		}
+	}
+	if state.TagStatus == "pending" {
 		if err := hotfixPushTag(tagName, commit); err != nil {
 			return err
 		}
-	}
-	if terminal.AskConfirmation("Backport to develop?", true) {
-		if err := hotfixBackport(branchName, "develop"); err != nil {
+		state.TagStatus = "published"
+		if err := store.save(); err != nil {
 			return err
 		}
 	}
-	if terminal.AskConfirmation("Backport to main/master?", true) {
-		targetBranch := "main"
-		if _, err := app.RunGitCommand("rev-parse", "--verify", "origin/main"); err != nil {
-			targetBranch = "master"
-		}
-		if err := hotfixBackport(branchName, targetBranch); err != nil {
+	if err := hotfixPlanBackports(store, state, config); err != nil {
+		return err
+	}
+	for i := range state.Backports {
+		if err := hotfixRunBackport(store, state, i, config.VersionControlService); err != nil {
 			return err
 		}
 	}
-	ui.Success("Hotfix workflow completed")
+	state.Phase = "completed"
+	if err := store.save(); err != nil {
+		return err
+	}
+	ui.Success("Hotfix finalization completed; review backports still need approval and merge.")
 	return nil
 }
 
@@ -417,9 +462,9 @@ func hotfixActions(current, prefix string) []string {
 
 var Hotfix = &console.Command{
 	Name:  "hotfix",
-	Usage: "Hotfix workflow: start, publish, or finish; omit the action for an interactive menu",
+	Usage: "Hotfix workflow: start, publish, finish, or resume; omit the action for an interactive menu",
 	Args: console.ArgDefinition{
-		{Name: "action", Optional: true, Description: "start, publish, or finish"},
+		{Name: "action", Optional: true, Description: "start, publish, finish, or resume"},
 	},
 	Action: func(c *console.Context) error {
 		ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
@@ -431,6 +476,17 @@ var Hotfix = &console.Command{
 		if prefix == "" {
 			prefix = "hotfix"
 		}
+		store, err := hotfixLoadStore()
+		if err != nil {
+			return err
+		}
+		var resumable []string
+		for branch, state := range store.Workflows {
+			if state.Phase != "completed" {
+				resumable = append(resumable, branch)
+			}
+		}
+		sort.Strings(resumable)
 
 		current, err := app.RunGitCommand("rev-parse", "--abbrev-ref", "HEAD")
 		if err != nil {
@@ -440,19 +496,42 @@ var Hotfix = &console.Command{
 		action := c.Args().Get("action")
 		if action == "" {
 			options := hotfixActions(current, prefix)
-			if err := survey.AskOne(&survey.Select{Message: "Next hotfix step:", Options: options}, &action); err != nil {
+			defaultAction := options[0]
+			if state := store.Workflows[current]; state != nil {
+				defaultAction = hotfixDefaultAction(state)
+			}
+			if len(resumable) > 0 {
+				options = append(options, "resume")
+				if !strings.HasPrefix(current, prefix+"/") {
+					defaultAction = "resume"
+				}
+			}
+			if err := survey.AskOne(&survey.Select{Message: "Next hotfix step:", Options: options, Default: defaultAction}, &action); err != nil {
 				return err
 			}
 		}
-		if action != "start" && action != "publish" && action != "finish" {
-			return fmt.Errorf("unknown hotfix action %q: use start, publish, or finish", action)
+		if action != "start" && action != "publish" && action != "finish" && action != "resume" {
+			return fmt.Errorf("unknown hotfix action %q: use start, publish, finish, or resume", action)
 		}
 		if err := hotfixPreflight(); err != nil {
 			return err
 		}
+		if action == "resume" {
+			if len(resumable) == 0 {
+				return fmt.Errorf("no unfinished hotfix checkpoint found")
+			}
+			current = resumable[0]
+			if len(resumable) > 1 {
+				if err := survey.AskOne(&survey.Select{Message: "Hotfix to resume:", Options: resumable}, &current); err != nil {
+					return err
+				}
+			}
+			action = hotfixDefaultAction(store.Workflows[current])
+			ui.Note(fmt.Sprintf("Resuming %s at %s", current, action))
+		}
 		switch action {
 		case "start":
-			branch, err := hotfixStart(prefix, strings.TrimSpace(config.HotfixProductionTag))
+			branch, err := hotfixStart(prefix, strings.TrimSpace(config.HotfixProductionTag), store)
 			if err != nil {
 				return err
 			}
@@ -464,11 +543,14 @@ var Hotfix = &console.Command{
 				return fmt.Errorf("check out a %s/* branch before running 'mycli hotfix %s'", prefix, action)
 			}
 			if action == "publish" {
-				return hotfixPublish(current, config.VersionControlService, config.HotfixReviewTarget)
+				if _, err := app.RunGitCommand("checkout", current); err != nil {
+					return err
+				}
+				return hotfixPublish(store, store.state(current), config.VersionControlService, config.HotfixReviewTarget)
 			}
-			return hotfixFinish(current, prefix, config.VersionControlService)
+			return hotfixFinish(store, store.state(current), prefix, config)
 		default:
-			return fmt.Errorf("unknown hotfix action %q: use start, publish, or finish", action)
+			return fmt.Errorf("unknown hotfix action %q: use start, publish, finish, or resume", action)
 		}
 	},
 }

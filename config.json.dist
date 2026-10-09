@@ -6,6 +6,8 @@
     "hotfix_prefix": "hotfix",
     "hotfix_production_tag": "",
     "hotfix_review_target": "",
+    "hotfix_backport_targets": [],
+    "hotfix_backport_mode": "review",
     "azure_tenant": "",
     "applications": {
         "pily": {

@@ -25,6 +25,8 @@ type Config struct {
 	HotfixPrefix          string                       `json:"hotfix_prefix"`
 	HotfixProductionTag   string                       `json:"hotfix_production_tag"`
 	HotfixReviewTarget    string                       `json:"hotfix_review_target"`
+	HotfixBackportTargets []string                     `json:"hotfix_backport_targets"`
+	HotfixBackportMode    string                       `json:"hotfix_backport_mode"`
 	AzureTenant           string                       `json:"azure_tenant"`
 	Applications          map[string]ApplicationConfig `json:"applications"`
 }
