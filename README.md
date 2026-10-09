@@ -29,6 +29,13 @@ accessible `origin` remote. Remote branches and tags are refreshed before change
 Custom branch names must contain a valid release version; existing branches or
 release tags are rejected at creation time.
 
+The release picker shows the five latest version families, dates, and prerelease
+labels. Stable releases are preferred over prereleases. You can enter an older
+tag manually. Only `X.Y.Z` and `X.Y.Z-suffix` tags are supported.
+Set `hotfix_production_tag` to the known deployed tag to suggest it by default,
+including when it is older than the recent releases. This is an explicit hint,
+not an automatic deployment lookup: keep it up to date.
+
 ## Developing
 
 To build a new version of the CLI

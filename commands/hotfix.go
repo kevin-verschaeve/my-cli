@@ -56,46 +56,103 @@ func hotfixTagName(branchName, prefix string) (string, error) {
 	return "", fmt.Errorf("tag %q is not a valid semantic version", tagName)
 }
 
-// hotfixTagCandidates expects tags sorted by descending Git version order.
-// It keeps the latest version's tags, placing the plain release first.
+// hotfixTagCandidates expects descending Git version order and keeps the five
+// latest version families, placing plain releases before their prereleases.
 func hotfixTagCandidates(allTags string) []string {
-	base := ""
+	bases := make(map[string]int)
 	var candidates []string
 	for _, tag := range strings.Split(strings.TrimSpace(allTags), "\n") {
 		m := hotfixCandidatePattern.FindStringSubmatch(tag)
 		if m == nil {
 			continue
 		}
-		if base == "" {
-			base = m[1]
-		}
-		if m[1] != base {
-			break
+		if _, found := bases[m[1]]; !found {
+			if len(bases) == 5 {
+				continue
+			}
+			bases[m[1]] = len(bases)
 		}
 		candidates = append(candidates, tag)
 	}
 
 	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i] == base && candidates[j] != base
+		a := hotfixCandidatePattern.FindStringSubmatch(candidates[i])[1]
+		b := hotfixCandidatePattern.FindStringSubmatch(candidates[j])[1]
+		if a != b {
+			return bases[a] < bases[b]
+		}
+		return candidates[i] == a && candidates[j] != b
 	})
 	return candidates
 }
 
-func hotfixStart(prefix string) (string, error) {
+func hotfixReleaseOptions(candidates []string, dates map[string]string, production string) ([]string, int) {
+	options := make([]string, 0, len(candidates)+1)
+	defaultChoice := 0
+	stableFound := false
+	for i, tag := range candidates {
+		label := tag
+		if date := dates[tag]; date != "" {
+			label += " — " + date
+		}
+		if hotfixCandidatePattern.FindStringSubmatch(tag)[2] != "" {
+			label += " [prerelease]"
+		} else if !stableFound {
+			defaultChoice, stableFound = i, true
+		}
+		if tag == production {
+			label += " [configured production version]"
+		}
+		options = append(options, label)
+	}
+	if production != "" {
+		for i, tag := range candidates {
+			if tag == production {
+				defaultChoice = i
+			}
+		}
+	}
+	return append(options, "Other (I will provide it)"), defaultChoice
+}
+
+func hotfixStart(prefix, production string) (string, error) {
 	allTags, err := app.RunGitCommand("tag", "-l", "--sort=-v:refname")
 	if err != nil {
 		return "", fmt.Errorf("unable to list tags: %w", err)
 	}
 	candidates := hotfixTagCandidates(allTags)
-	if len(candidates) == 0 {
-		return "", fmt.Errorf("no tag matching X.Y.Z(-*)? pattern found")
+	if production != "" {
+		if !hotfixVersionPattern.MatchString(production) {
+			return "", fmt.Errorf("configured production tag %q is not a valid release version", production)
+		}
+		if _, err := app.RunGitCommand("rev-parse", "--verify", "refs/tags/"+production+"^{commit}"); err != nil {
+			return "", fmt.Errorf("configured production tag %q was not found on origin; update hotfix_production_tag", production)
+		}
+		found := false
+		for _, tag := range candidates {
+			found = found || tag == production
+		}
+		if !found {
+			candidates = append([]string{production}, candidates...)
+		}
 	}
-
-	options := append(candidates, "Other (I will provide it)")
+	datesOutput, err := app.RunGitCommand("for-each-ref", "--format=%(refname:strip=2)\t%(creatordate:short)", "refs/tags")
+	if err != nil {
+		return "", fmt.Errorf("unable to read tag dates: %w", err)
+	}
+	dates := make(map[string]string)
+	for _, line := range strings.Split(strings.TrimSpace(datesOutput), "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) == 2 {
+			dates[parts[0]] = parts[1]
+		}
+	}
+	options, defaultChoice := hotfixReleaseOptions(candidates, dates, production)
 	choice := 0
 	err = survey.AskOne(&survey.Select{
-		Message: "Select the tag you want to start from:",
+		Message: "Which deployed release needs the fix? (highest tag is not necessarily production)",
 		Options: options,
+		Default: options[defaultChoice],
 	}, &choice)
 	if err != nil {
 		return "", err
@@ -318,7 +375,7 @@ var Hotfix = &console.Command{
 		}
 		switch action {
 		case "start":
-			branch, err := hotfixStart(prefix)
+			branch, err := hotfixStart(prefix, strings.TrimSpace(config.HotfixProductionTag))
 			if err != nil {
 				return err
 			}

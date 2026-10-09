@@ -3,8 +3,10 @@
     "linear_organization": "",
     "linear_ticket_prefix": "",
     "daily_file": "daily.txt",
+	"hotfix_prefix": "hotfix",
+	"hotfix_production_tag": "",
     "azure_tenant": "",
-    "appications": {
+    "applications": {
         "pily": {
             "client_id": "",
             "client_secret": "",
@@ -14,6 +16,6 @@
             "client_id": "",
             "client_secret": "",
             "scope": ""
-        },
+        }
     }
 }

@@ -18,11 +18,11 @@ func TestHotfixTagCandidates(t *testing.T) {
 	}{
 		{name: "empty"},
 		{name: "unmatched", tags: "v2.0.0\nrelease"},
-		{name: "release first", tags: "1.2.3-rc2\n1.2.3-rc1\n1.2.3\n1.2.2", want: []string{"1.2.3", "1.2.3-rc2", "1.2.3-rc1"}},
-		{name: "prereleases only", tags: "1.2.3-rc2\n1.2.3-rc1\n1.2.2", want: []string{"1.2.3-rc2", "1.2.3-rc1"}},
-		{name: "skip unmatched tags", tags: "v9.0.0\n1.2.3-rc2\nignored\n1.2.3\n1.2.2", want: []string{"1.2.3", "1.2.3-rc2"}},
-		{name: "trim outer whitespace", tags: " \n1.2.3\n1.2.2\n ", want: []string{"1.2.3"}},
-		{name: "stop at different base", tags: "1.2.3-rc1\n1.2.2\n1.2.3", want: []string{"1.2.3-rc1"}},
+		{name: "release first", tags: "1.2.3-rc2\n1.2.3-rc1\n1.2.3\n1.2.2", want: []string{"1.2.3", "1.2.3-rc2", "1.2.3-rc1", "1.2.2"}},
+		{name: "prereleases only", tags: "1.2.3-rc2\n1.2.3-rc1\n1.2.2", want: []string{"1.2.3-rc2", "1.2.3-rc1", "1.2.2"}},
+		{name: "skip unmatched tags", tags: "v9.0.0\n1.2.3-rc2\nignored\n1.2.3\n1.2.2", want: []string{"1.2.3", "1.2.3-rc2", "1.2.2"}},
+		{name: "trim outer whitespace", tags: " \n1.2.3\n1.2.2\n ", want: []string{"1.2.3", "1.2.2"}},
+		{name: "limit version families", tags: "1.2.6\n1.2.5\n1.2.4\n1.2.3\n1.2.2\n1.2.1", want: []string{"1.2.6", "1.2.5", "1.2.4", "1.2.3", "1.2.2"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hotfixTagCandidates(tt.tags)
