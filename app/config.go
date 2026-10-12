@@ -27,7 +27,8 @@ type Config struct {
 	PreviewUrlTemplate    string                       `json:"preview_url_template"`
 	LinearOrganization    string                       `json:"linear_organization"`
 	LinearTicketPrefix    string                       `json:"linear_ticket_prefix"`
-	DailyFile             string                       `json:"daily_file"`
+	DailyDir              string                       `json:"daily_dir"`
+	TextEditor            string                       `json:"text_editor"`
 	Hotfix                HotfixConfig                 `json:"hotfix"`
 	AzureTenant           string                       `json:"azure_tenant"`
 	Applications          map[string]ApplicationConfig `json:"applications"`

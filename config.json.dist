@@ -2,7 +2,8 @@
     "vcs": "gitlab",
     "linear_organization": "",
     "linear_ticket_prefix": "",
-    "daily_file": "daily.txt",
+    "daily_dir": "daily",
+    "text_editor": "",
     "hotfix": {
         "prefix": "hotfix",
         "backport_targets": [],

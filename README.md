@@ -36,6 +36,27 @@ exo
 exo help <comman>
 ```
 
+## Daily notes
+
+`exo daily "Completed a task"` (alias `exo d`) appends the text and a newline
+to today's Markdown file, named `YYYY-MM-DD.md` using the local date. The directory
+and file are created on the first entry. Previous days' files are kept untouched;
+no cleanup cron is needed.
+
+For Markdown text starting with a dash, use `exo daily -- "- Completed a task"`.
+
+Configure `daily_dir` with an absolute path, a `~/` path, or a path relative to
+the configuration directory (default: `daily`, i.e. `$HOME/mycli/daily`).
+Replace the old `daily_file` key with `daily_dir`; the old file is not migrated.
+
+- `exo daily`: display today's content; if no file exists, display nothing.
+- `exo daily --ui`: create today's file if needed and open it in an editor.
+    This option cannot be combined with task text.
+
+The editor is chosen from `text_editor`, then `$EDITOR`, then `nano`.
+Editor arguments and quoted paths are supported (for example `code --wait`).
+Terminal editors use the current terminal; commands run without a shell.
+
 ## Hotfix workflow
 
 Run `exo hotfix` for an interactive menu, or choose a step explicitly:
@@ -160,6 +181,10 @@ Run `exo init` to create `$HOME/mycli/config.json` with default values, then
 The configuration file is created with owner-only read/write permissions.
 Set `MYCLI__HOME` (or `<compiled prefix>HOME`) to use another configuration directory.
 
+`exo config:edit` (alias `exo config`) uses `text_editor`, then `$VISUAL`,
+then `$EDITOR`, then `nano`. If the configuration is invalid, environment/default
+editors remain available to repair it.
+
 <details>
     <summary>Configuration Reference</summary>
 
@@ -167,7 +192,8 @@ Set `MYCLI__HOME` (or `<compiled prefix>HOME`) to use another configuration dire
     "preview_url_template": Url to open with the command `exo preview <pr-number>`. Place a `%s` placeholder to be replaced by the Pull Request number.
     "linear_organization": Project organization on [linear](https://linear.app).
     "linear_ticket_prefix": Prefix for your linear ticket. Defaults to environment variable `MYCLI__LINEAR_TICKET_PREFIX`.
-    "daily_file": File to write your daily content.
+    "daily_dir": Directory for daily Markdown files. Defaults to "daily", relative to the configuration directory.
+    "text_editor": Optional editor command for daily --ui and config:edit. Daily falls back to $EDITOR then nano; config:edit also checks $VISUAL first.
     "pipeline_aliases": Open a pipeline using an alias. It is a map with `{"alias": "real pipeline name"}`.
     "pipeline_suffixes": If you need to add a suffix to the pipeline name.
     "pipeline_url_template": Url of the pipeline. Contains 3 placeholders in this order: "pipeline name", "pipeline environment", "pipeline suffix".

@@ -32,7 +32,14 @@ var ConfigEdit = &console.Command{
 		return nil
 	},
 	Action: func(c *console.Context) error {
-		editor := os.Getenv("VISUAL")
+		// Keep editing available when the configuration needs to be repaired.
+		editor := ""
+		if config, err := app.LoadConfig(); err == nil {
+			editor = config.TextEditor
+		}
+		if editor == "" {
+			editor = os.Getenv("VISUAL")
+		}
 		if editor == "" {
 			editor = os.Getenv("EDITOR")
 		}

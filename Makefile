@@ -4,6 +4,7 @@ BINDIR ?= $(HOME)/.local/bin
 
 
 # PREFIX=EXO make install BINARY=exo
+# go version -m "$(command -v exo)" ## voir les options de compilation
 .PHONY: install
 install:
 	mkdir -p "$(BINDIR)"

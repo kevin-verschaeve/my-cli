@@ -17,7 +17,7 @@ var Init = &console.Command{
 	Action: func(c *console.Context) error {
 		config := app.Config{
 			VersionControlService: "gitlab",
-			DailyFile:             "daily.txt",
+			DailyDir:              "daily",
 			Hotfix: app.HotfixConfig{
 				Prefix:          "hotfix",
 				BackportTargets: []string{},
