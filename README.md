@@ -88,7 +88,7 @@ never force-pushed or overwritten.
 Publication pushes the hotfix branch and records its commit, without prompting
 to open/create a review or open CI. Request the review separately. Set `vcs` to
 `github` (requires authenticated `gh`) or `gitlab` (requires authenticated `glab`
-for the hotfix workflow; older `open:pr`/`pipeline` commands still use `lab`).
+for the hotfix workflow and `open:pr`; the older `pipeline` command still uses `lab`).
 
 Finalization checks the review's commit, draft/state, approvals, and CI status.
 Known pending/failed checks or missing required approvals block release. If the

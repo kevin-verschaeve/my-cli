@@ -15,6 +15,7 @@ func CommonCommands() []*console.Command {
 		Checkout,
 		Token,
 		Hotfix,
+		OpenPullRequest,
 	}
 
 	return commands

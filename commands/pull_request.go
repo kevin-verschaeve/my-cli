@@ -14,7 +14,7 @@ import (
 // OpenPullRequest allows to open the Pull Request in github corresponding to the current branch.
 var OpenPullRequest = &console.Command{
 	Name:    "open:pr",
-	Aliases: []*console.Alias{{Name: "pr"}},
+	Aliases: []*console.Alias{{Name: "pr"}, {Name: "mr"}},
 	Usage:   "Open the current branch Pull Request",
 	Args: console.ArgDefinition{
 		{Name: "ticket-id", Optional: true, Description: "The ticket id to check out the pull request. If None, guess it from the current branch"},
@@ -29,8 +29,8 @@ var OpenPullRequest = &console.Command{
 		}
 
 		if vcs == "gitlab" {
-			if err := app.CheckCommandExists("lab"); err != nil {
-				log.Fatal("Gitlab cli (lab) is required to run this command. Install it from here: https://gitlab.com/lab-cli/lab#installation")
+			if err := app.CheckCommandExists("glab"); err != nil {
+				log.Fatal("GitLab CLI (glab) is required to run this command. Install it from here: https://gitlab.com/gitlab-org/cli#installation")
 			}
 		}
 
@@ -66,9 +66,9 @@ var OpenPullRequest = &console.Command{
 		if vcs == "gitlab" {
 			var cmd *exec.Cmd
 			if ticketId == "" {
-				cmd = exec.Command("lab", "mr", "browse")
+				cmd = exec.Command("glab", "mr", "view", "--web")
 			} else {
-				cmd = exec.Command("lab", "mr", "browse", branch)
+				cmd = exec.Command("glab", "mr", "view", branch, "--web")
 			}
 
 			err := cmd.Run()
