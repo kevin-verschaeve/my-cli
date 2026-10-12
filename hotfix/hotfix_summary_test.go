@@ -5,6 +5,26 @@ import (
 	"testing"
 )
 
+func TestHotfixTagMessage(t *testing.T) {
+	git := hotfixTestRepo(t)
+	base := git("rev-parse", "HEAD")
+	git("checkout", "-b", "hotfix/1.0.1")
+	git("commit", "--allow-empty", "-m", "Fix checkout timeout", "-m", "Details must not appear in the recap")
+	git("commit", "--allow-empty", "-m", "Handle expired sessions")
+	commit := git("rev-parse", "HEAD")
+	git("commit", "--allow-empty", "-m", "Not part of the validated release")
+	state := &hotfixState{Tag: "1.0.1", BaseCommit: base, Commit: commit}
+	got, err := hotfixTagMessage(state)
+	want := "Hotfix release 1.0.1\n\n- Fix checkout timeout\n- Handle expired sessions"
+	if err != nil || got != want {
+		t.Fatalf("tag message = %q, %v; want %q", got, err, want)
+	}
+	state.Commit = "missing-commit"
+	if _, err := hotfixTagMessage(state); err == nil {
+		t.Fatal("invalid commit must not produce a release description")
+	}
+}
+
 func TestHotfixSummary(t *testing.T) {
 	state := &hotfixState{
 		Branch: "hotfix/1.0.1", Base: "1.0.0", Commit: "abc", Phase: "finishing",

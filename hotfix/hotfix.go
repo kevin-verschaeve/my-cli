@@ -1,6 +1,7 @@
 package hotfix
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"regexp"
@@ -22,6 +23,26 @@ var (
 
 func hotfixAsk(message string) string {
 	return terminal.AskString(message+" ", func(s string) (string, bool) { return s, true })
+}
+
+// Reuse the reader across prompts so buffered answers are not discarded.
+func hotfixConfirm(reader *bufio.Reader, message string) (bool, error) {
+	if !terminal.Stdin.IsInteractive() {
+		return false, nil
+	}
+	for {
+		terminal.Print(message + " <question>[y/N]</> ")
+		answer, err := reader.ReadString('\n')
+		if err != nil {
+			return false, fmt.Errorf("unable to read confirmation: %w", err)
+		}
+		switch strings.ToLower(strings.TrimSpace(answer)) {
+		case "y", "yes":
+			return true, nil
+		case "", "n", "no":
+			return false, nil
+		}
+	}
 }
 
 func nextPatchVersion(tag string) (string, error) {
@@ -268,12 +289,12 @@ func hotfixPublishedCommit(branchName string) (string, error) {
 	}
 	fields := strings.Fields(remote)
 	if len(fields) != 2 || fields[0] != commit {
-		return "", fmt.Errorf("local and published hotfix commits differ; synchronize and run 'exo hotfix publish' before review")
+		return "", fmt.Errorf("local and published hotfix commits differ; synchronize and run 'exo hotfix publish' before finalization")
 	}
 	return commit, nil
 }
 
-func hotfixPushTag(tagName, commit string) error {
+func hotfixPushTag(tagName, commit, message string) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
 	if !hotfixVersionPattern.MatchString(tagName) {
 		return fmt.Errorf("invalid release tag %q", tagName)
@@ -303,7 +324,7 @@ func hotfixPushTag(tagName, commit string) error {
 		existingTag = tagName
 	}
 	if strings.TrimSpace(existingTag) == "" {
-		if _, err := app.RunGitCommand("tag", "-a", tagName, "-m", "Hotfix release "+tagName, commit); err != nil {
+		if _, err := app.RunGitCommand("tag", "-a", tagName, "-m", message, commit); err != nil {
 			return fmt.Errorf("unable to create tag %q: %w", tagName, err)
 		}
 		ui.Note(fmt.Sprintf("Created tag: %s", tagName))
@@ -352,15 +373,16 @@ func hotfixPublish(store *hotfixStore, state *hotfixState) error {
 	}
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
 	ui.Success("Branch pushed")
-	ui.Note("Request a review, then run 'exo hotfix finish' when it is approved.")
+	ui.Note("Run 'exo hotfix finish' to publish the release tag and backport the fix.")
 	return nil
 }
 
 func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config *app.Config) error {
 	ui := terminal.SymfonyStyle(terminal.Stdout, terminal.Stdin)
+	reader := bufio.NewReader(terminal.Stdin)
 	branchName := state.Branch
 	if state.Phase == "completed" {
-		ui.Success("Hotfix already finalized. Review backports may still be awaiting merge.")
+		ui.Success("Hotfix already finalized.")
 		return nil
 	}
 	commit, err := hotfixPublishedCommit(branchName)
@@ -378,11 +400,12 @@ func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config 
 	}
 	ui.Note(fmt.Sprintf("Release commit: %s (%s)", commit, branchName))
 	if state.Phase != "finishing" {
-		if err := hotfixVerifyReview(config.VersionControlService, branchName, commit); err != nil {
+		confirmed, err := hotfixConfirm(reader, "Finalize this published hotfix commit?")
+		if err != nil {
 			return err
 		}
-		if !terminal.AskConfirmation("Finalize this validated hotfix commit?", false) {
-			ui.Note("Finalization postponed. Run 'exo hotfix finish' after review.")
+		if !confirmed {
+			ui.Note("Finalization postponed. Run 'exo hotfix finish' when ready.")
 			return nil
 		}
 		state.Commit, state.Phase = commit, "finishing"
@@ -396,8 +419,12 @@ func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config 
 	}
 	state.Tag = tagName
 	if state.TagStatus == "" {
+		confirmed, err := hotfixConfirm(reader, fmt.Sprintf("Push release tag %s at validated commit %s?", tagName, commit))
+		if err != nil {
+			return err
+		}
 		state.TagStatus = "skipped"
-		if terminal.AskConfirmation(fmt.Sprintf("Push release tag %s at validated commit %s?", tagName, commit), false) {
+		if confirmed {
 			state.TagStatus = "pending"
 		}
 		if err := store.save(); err != nil {
@@ -405,7 +432,40 @@ func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config 
 		}
 	}
 	if state.TagStatus == "pending" {
-		if err := hotfixPushTag(tagName, commit); err != nil {
+		if state.TagMessage == "" {
+			message, err := hotfixTagMessage(state)
+			if err != nil {
+				return err
+			}
+			ui.Note("Tag description:\n" + message)
+			edit, err := hotfixConfirm(reader, "Edit the tag description before pushing?")
+			if err != nil {
+				return err
+			}
+			if edit {
+				editor := os.Getenv("VISUAL")
+				if editor == "" {
+					editor = os.Getenv("EDITOR")
+				}
+				if err := survey.AskOne(&survey.Editor{
+					Message: "Edit tag description (save and close the editor to continue)",
+					Default: message, AppendDefault: true, HideDefault: true, Editor: editor,
+				}, &message, survey.WithValidator(func(answer interface{}) error {
+					if strings.TrimSpace(answer.(string)) == "" {
+						return fmt.Errorf("tag description is required")
+					}
+					return nil
+				})); err != nil {
+					return err
+				}
+				ui.Note("Tag description:\n" + message)
+			}
+			state.TagMessage = strings.TrimSpace(message)
+			if err := store.save(); err != nil {
+				return err
+			}
+		}
+		if err := hotfixPushTag(tagName, commit, state.TagMessage); err != nil {
 			return err
 		}
 		state.TagStatus = "published"
@@ -425,7 +485,13 @@ func hotfixFinish(store *hotfixStore, state *hotfixState, prefix string, config 
 	if err := store.save(); err != nil {
 		return err
 	}
-	ui.Success("Hotfix finalization completed; review backports still need approval and merge.")
+	ui.Success("Hotfix finalization completed.")
+	for _, backport := range state.Backports {
+		if backport.Mode == "review" && backport.Outcome != "already-present" {
+			ui.Note("Review backports still need approval and merge.")
+			break
+		}
+	}
 	return nil
 }
 

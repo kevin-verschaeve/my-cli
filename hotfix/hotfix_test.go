@@ -40,7 +40,7 @@ func TestHotfixGitSteps(t *testing.T) {
 	hotfixCommit := git("rev-parse", "HEAD")
 
 	for i := 0; i < 2; i++ {
-		if err := hotfixPushTag("1.0.1", hotfixCommit); err != nil {
+		if err := hotfixPushTag("1.0.1", hotfixCommit, "Hotfix release 1.0.1\n\n- Hotfix"); err != nil {
 			t.Fatalf("hotfixPushTag attempt %d: %v", i+1, err)
 		}
 	}

@@ -27,6 +27,7 @@ type hotfixState struct {
 	Phase            string                `json:"phase"`
 	Tag              string                `json:"tag,omitempty"`
 	TagStatus        string                `json:"tag_status,omitempty"`
+	TagMessage       string                `json:"tag_message,omitempty"`
 	Backports        []hotfixBackportState `json:"backports,omitempty"`
 	BackportsPlanned bool                  `json:"backports_planned"`
 	LastError        string                `json:"last_error,omitempty"`

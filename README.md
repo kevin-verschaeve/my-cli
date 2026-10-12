@@ -62,8 +62,8 @@ Terminal editors use the current terminal; commands run without a shell.
 Run `exo hotfix` for an interactive menu, or choose a step explicitly:
 
 1. `exo hotfix start`: choose the release and create a hotfix branch. The command exits so you can implement and commit the fix.
-2. `exo hotfix publish`: push the current hotfix branch for review. Run it again to publish additional commits.
-3. `exo hotfix finish`: after review, optionally publish the release tag and backport the fix.
+2. `exo hotfix publish`: push the current hotfix branch. Run it again to publish additional commits.
+3. `exo hotfix finish`: confirm finalization, optionally publish the release tag and backport the fix. No PR/MR review is required.
 
 Declining finalization postpones it; it does not delete your branch or commits.
 
@@ -85,16 +85,22 @@ annotated and created on that explicit commit, regardless of the checked-out
 branch. Existing local or remote tags must point to the same commit; tags are
 never force-pushed or overwritten.
 
-Publication pushes the hotfix branch and records its commit, without prompting
-to open/create a review or open CI. Request the review separately. Set `vcs` to
-`github` (requires authenticated `gh`) or `gitlab` (requires authenticated `glab`
-for the hotfix workflow and `open:pr`; the older `pipeline` command still uses `lab`).
+Before pushing a new tag, the CLI shows a minimal description containing the
+hotfix commit subjects since the starting release. You can keep it or edit it
+in your preferred editor (`VISUAL` / `EDITOR`), with the generated text prefilled.
+The description is checkpointed for retries and stored in the annotated tag;
+existing tags keep their original description.
 
-Finalization checks the review's commit, draft/state, approvals, and CI status.
-Known pending/failed checks or missing required approvals block release. If the
-tool is unavailable or the provider has no complete approval/CI evidence, an
-explicit manual verification is required. Provider/API errors do not silently
-bypass verification. Review creation for backports remains available in review mode.
+Publication pushes the hotfix branch and records its commit, without prompting
+to open/create a review or open CI. Finalization does not query PR/MR approvals
+or CI status and does not ask for manual review verification. Git safety checks
+and the explicit release confirmation remain in place.
+
+Review creation for backports remains available only when choosing `review`
+mode. For that mode, set `vcs` to `github` (requires authenticated `gh`) or
+`gitlab` (requires authenticated `glab`). Choose `direct` backports to avoid
+PRs/MRs entirely. The `open:pr` command also uses `vcs`; the older `pipeline`
+command still uses `lab`.
 
 ### Backports and recovery
 

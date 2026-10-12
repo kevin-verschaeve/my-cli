@@ -111,8 +111,9 @@ func TestHotfixPushTagUsesExplicitCommit(t *testing.T) {
 		t.Fatalf("published commit = %s, %v", got, err)
 	}
 	git("checkout", "main")
+	message := "Hotfix release 1.0.1\n\n- Fix checkout timeout"
 	for i := 0; i < 2; i++ {
-		if err := hotfixPushTag("1.0.1", commit); err != nil {
+		if err := hotfixPushTag("1.0.1", commit, message); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -121,6 +122,9 @@ func TestHotfixPushTagUsesExplicitCommit(t *testing.T) {
 	}
 	if git("cat-file", "-t", "1.0.1") != "tag" {
 		t.Fatal("release tag must be annotated")
+	}
+	if got := git("for-each-ref", "--format=%(contents)", "refs/tags/1.0.1"); got != message {
+		t.Fatalf("tag description = %q, want %q", got, message)
 	}
 	git("checkout", "hotfix/1.0.1")
 	git("commit", "--allow-empty", "-m", "Unreviewed fix")
@@ -134,12 +138,12 @@ func TestHotfixPushTagRejectsMismatches(t *testing.T) {
 	git("commit", "--allow-empty", "-m", "Fix")
 	commit := git("rev-parse", "HEAD")
 	git("tag", "1.0.1", "HEAD^")
-	if err := hotfixPushTag("1.0.1", commit); err == nil || !strings.Contains(err.Error(), "local tag") {
+	if err := hotfixPushTag("1.0.1", commit, "Fix"); err == nil || !strings.Contains(err.Error(), "local tag") {
 		t.Fatalf("expected local mismatch, got %v", err)
 	}
 	git("push", "origin", "refs/tags/1.0.1")
 	git("tag", "-d", "1.0.1")
-	if err := hotfixPushTag("1.0.1", commit); err == nil || !strings.Contains(err.Error(), "remote tag") {
+	if err := hotfixPushTag("1.0.1", commit, "Fix"); err == nil || !strings.Contains(err.Error(), "remote tag") {
 		t.Fatalf("expected remote mismatch, got %v", err)
 	}
 	if git("tag", "--list", "1.0.1") != "" {

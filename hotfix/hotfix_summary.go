@@ -9,6 +9,18 @@ import (
 	"github.com/symfony-cli/terminal"
 )
 
+func hotfixTagMessage(state *hotfixState) (string, error) {
+	subjects, err := app.RunGitCommand("log", "--reverse", "--no-merges", "--format=- %s", state.BaseCommit+".."+state.Commit)
+	if err != nil {
+		return "", fmt.Errorf("unable to summarize hotfix commits: %w", err)
+	}
+	message := "Hotfix release " + state.Tag
+	if subjects = strings.TrimSpace(subjects); subjects != "" {
+		message += "\n\n" + subjects
+	}
+	return message, nil
+}
+
 func hotfixSummary(state *hotfixState, current string) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "Hotfix: %s\nStage: %s\n", state.Branch, state.Phase)
